@@ -5,15 +5,18 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
 func main() {
-	fileName := flag.String("file", "", "csv file name")
+	fileName := flag.String("file", "problems.csv", "csv file name")
 	quizTimeLimit := flag.Int("timer", 30, "quiz time limit")
+	shouldShuffle := flag.Bool("shuffle", false, "shuffle the problems")
 	flag.Parse()
-	pf, err := os.Open(fmt.Sprintf("%s.csv", *fileName))
+	pf, err := os.Open(*fileName)
 	if err != nil {
 		panic(err)
 	}
@@ -25,6 +28,12 @@ func main() {
 	problems, err := r.ReadAll()
 	if err != nil {
 		panic(err)
+	}
+
+	if *shouldShuffle {
+		rand.Shuffle(len(problems), func(i, j int) {
+			problems[i], problems[j] = problems[j], problems[i]
+		})
 	}
 
 	inputCh := make(chan string)
@@ -59,18 +68,22 @@ func main() {
 		select {
 		case userAnswer, ok := <-inputCh:
 			if !ok {
-				fmt.Println("input closed")
+				printScore(totalCorrect, len(problems))
 				return
 			}
-			if userAnswer == answer {
+			if strings.TrimSpace(userAnswer) == strings.TrimSpace(answer) {
 				totalCorrect += 1
 			}
 		case <-timer.C:
-			fmt.Printf("%d/%d got right", totalCorrect, len(problems))
+			printScore(totalCorrect, len(problems))
 			fmt.Println("Time up for quiz!")
 			return
 		}
 	}
 
-	fmt.Printf("%d/%d", totalCorrect, len(problems))
+	printScore(totalCorrect, len(problems))
+}
+
+func printScore(totalCorrect, totalProblems int) {
+	fmt.Printf("%d/%d got right\n", totalCorrect, totalProblems)
 }
